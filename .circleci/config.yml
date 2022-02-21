@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build_docker:
+  build:
     machine:
       image: ubuntu-2004:202111-01
       docker_layer_caching: true
