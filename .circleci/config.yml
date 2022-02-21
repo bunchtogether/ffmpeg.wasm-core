@@ -1,0 +1,136 @@
+version: 2.1
+orbs:
+  slack: circleci/slack@4.0.1
+  snyk: snyk/snyk@1.0.2
+jobs:
+  build_ami:
+    machine:
+      image: ubuntu-2004:202010-01
+      docker_layer_caching: true
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run: git submodule sync --recursive
+      - run: git submodule update --init --recursive
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+      - run: echo "export VERSION=$(cat ./package.json | jq -r -M .version)" >> $BASH_ENV
+      - run:
+          command: cd ./ami2 && chmod +x ./build.sh && ./build.sh || (./cleanup.sh && false)
+          no_output_timeout: 30m
+      - slack/notify:
+          channel: pulse
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Band v${VERSION} is available as AMI ${AMI_ID}"
+                  }
+                }
+              ]
+            }
+          event: pass
+      - slack/notify:
+          channel: pulse
+          event: fail
+          template: basic_fail_1
+  build_docker:
+    machine:
+      image: ubuntu-2004:202111-01
+      docker_layer_caching: true
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run:
+          name: Restart Docker with experimental features enabled
+          command: |
+            sudo sh -c 'echo '\''{"experimental": true}'\'' >> /etc/docker/daemon.json'
+            sudo service docker restart
+      - run:
+          name: Check docker is running
+          command: docker info
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            - v1-dependencies-
+      - run: yarn global add flow-remove-types rimraf cross-env eslint@^4.18.1
+      - run: sudo apt-get update
+      - run: DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -qq -y awscli libpq-dev g++ make libkrb5-dev
+      - run: echo "export VERSION=$(cat ./package.json | jq -r -M .version)" >> $BASH_ENV
+      - run: echo "export PRODUCT=$(cat ./package.json | jq -r -M .name)" >> $BASH_ENV
+      - run: echo "export SNYK_SEVERITY=high" >> $BASH_ENV
+      - run:
+          command: cd ./container && chmod +x ./build-circleci.sh && ./build-circleci.sh
+          no_output_timeout: 30m
+      - run:
+          name: Install and run trivy scan
+          command: cd ./container && chmod +x ./trivy-scan.sh && ./trivy-scan.sh && cat $PRODUCT-trivy-${CIRCLE_SHA1:0:7}.json | jq
+      - snyk/scan:
+          fail-on-issues: false
+          docker-image-name: $PRODUCT:$VERSION
+          monitor-on-build: false
+          organization: bunch-enterprise
+          additional-arguments: --json-file-output=./container/$PRODUCT-snyk-${CIRCLE_SHA1:0:7}.json
+      - run:
+          name: Run scan on boost
+          command: snyk test --org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-boost-${CIRCLE_SHA1:0:7}.json boost/ || true
+      - run:
+          name: Run scan on bridge
+          command: snyk test --org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-bridge-${CIRCLE_SHA1:0:7}.json bridge/ || true
+      - run:
+          name: Run scan on bridge-web
+          command: snyk test --org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-bridge-web-${CIRCLE_SHA1:0:7}.json bridge-web/ || true
+      - run:
+          name: Run scan on client-web
+          command: snyk -test -org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-client-web-${CIRCLE_SHA1:0:7}.json client-web/ || true
+      - run:
+          name: Run scan on cluster-web
+          command: snyk test --org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-cluster-web-${CIRCLE_SHA1:0:7}.json cluster-web/ || true
+      - run:
+          name: Run scan on remote-web
+          command: snyk test --org=bunch-enterprise --severity-threshold=$SNYK_SEVERITY --json-file-output=./container/$PRODUCT-snyk-remote-web-${CIRCLE_SHA1:0:7}.json remote-web/ || true
+      - run:
+          name: Upload scan results and docker image to S3
+          command: cd ./container && chmod +x ./upload-to-s3.sh && ./upload-to-s3.sh
+      - slack/notify:
+          channel: pulse
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Band v${VERSION} container is available at s3://bunch-software-components/band_${VERSION}.tgz\n---\nBand v${VERSION} trivy scan is available at s3://bunch-software-components/band-trivy-${CIRCLE_SHA1:0:7}.json\n---\nBand v${VERSION} snyk scan is available at:\n ${FILES_UPLOADED}"
+                  }
+                }
+              ]
+            }
+          event: pass
+      - slack/notify:
+          channel: pulse
+          event: fail
+          template: basic_fail_1
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build_ami:
+          context:
+            - Slack
+          filters:
+            branches:
+              only:
+                - develop
+      - build_docker:
+          context:
+            - Slack
+          filters:
+            branches:
+              only:
+                - develop
