@@ -28,11 +28,6 @@ TOOLCHAIN_FILE=$EMSDK/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmak
 # of size
 OPTIM_FLAGS="-O3"
 
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  # Use closure complier only in linux environment
-  OPTIM_FLAGS="$OPTIM_FLAGS --closure 1"
-fi
-
 # Unset OPTIM_FLAGS can speed up build
 # OPTIM_FLAGS=""
 
