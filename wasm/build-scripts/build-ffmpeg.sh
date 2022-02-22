@@ -15,6 +15,7 @@ else
   mkdir -p wasm/packages/core-st/dist
   EXTRA_FLAGS=(
     -o wasm/packages/core-st/dist/ffmpeg-core.js
+    --proxy-to-worker
   )
 fi
 FLAGS=(
