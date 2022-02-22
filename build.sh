@@ -26,11 +26,11 @@ run-all() {
     build-theora
     build-opus
     build-libwebp
-    build-freetype2
-    build-fribidi
-    build-harfbuzz
-    build-libass
-    #build-aom # disabled as it is extremely slow
+    # build-freetype2
+    # build-fribidi
+    # build-harfbuzz
+    # build-libass
+    # build-aom # disabled as it is extremely slow
     configure-ffmpeg
     build-ffmpeg
   )

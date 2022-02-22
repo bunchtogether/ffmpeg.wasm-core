@@ -16,11 +16,11 @@ FLAGS=(
   --enable-libfdk-aac     # enable libfdk-aac
   --enable-libtheora      # enable libtheora
   --enable-libvorbis      # enable libvorbis
-  --enable-libfreetype    # enable freetype
+  # --enable-libfreetype    # enable freetype
   --enable-libopus        # enable opus
   --enable-libwebp        # enable libwebp
-  --enable-libass         # enable libass
-  --enable-libfribidi     # enable libfribidi
+  # --enable-libass         # enable libass
+  # --enable-libfribidi     # enable libfribidi
   # --enable-libaom         # enable libaom
 )
 echo "FFMPEG_CONFIG_FLAGS=${FLAGS[@]}"

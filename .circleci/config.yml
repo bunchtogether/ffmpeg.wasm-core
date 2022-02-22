@@ -27,7 +27,7 @@ jobs:
       - run:
           command: chmod +x ./build-with-docker.sh && ./build-with-docker.sh
           no_output_timeout: 30m
-      - run: cd wasm/packages/core-st && tar czf ffmpeg.wasm-core.tar.gz dist/ && aws s3 cp ffmpeg.wasm-core.tar.gz s3://bunch-software-components/ffmpeg.wasm-core.tar.gz
+      - run: cd wasm/packages/core-st && mv dist ffmpeg && tar czf ffmpeg.tar.gz ffmpeg/ && aws s3 cp ffmpeg.tar.gz s3://bunch-software-components/ffmpeg.tar.gz
 workflows:
   version: 2
   build:
