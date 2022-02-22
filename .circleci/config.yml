@@ -9,7 +9,7 @@ jobs:
     working_directory: ~/repo
     steps:
       - git-shallow-clone/checkout
-      - run: DEBIAN_FRONTEND=noninteractive apt-get update 
+      - run: DEBIAN_FRONTEND=noninteractive sudo apt-get update 
       - run: DEBIAN_FRONTEND=noninteractive sudo apt-get install --no-install-recommends -qq -y awscli
       - run:
           name: Restart Docker with experimental features enabled
